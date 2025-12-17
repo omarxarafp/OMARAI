@@ -1,0 +1,129 @@
+name: Omar AI WhatsApp Bot
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+    # ---------------------------
+    # Checkout
+    # ---------------------------
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # ---------------------------
+    # Node.js
+    # ---------------------------
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    # ---------------------------
+    # Python
+    # ---------------------------
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    # ---------------------------
+    # System dependencies
+    # ---------------------------
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          aria2 \
+          ffmpeg \
+          wget \
+          curl \
+          unzip \
+          jq \
+          libstdc++6
+
+    # ---------------------------
+    # Install apkeep (FIXED)
+    # ---------------------------
+    - name: Install apkeep
+      run: |
+        wget -q https://github.com/EFForg/apkeep/releases/latest/download/apkeep-x86_64-unknown-linux-gnu -O apkeep
+        chmod +x apkeep
+        sudo mv apkeep /usr/local/bin/apkeep
+
+    - name: Verify apkeep
+      run: apkeep --help
+
+    # ---------------------------
+    # Node dependencies
+    # ---------------------------
+    - name: Install Node.js dependencies
+      run: npm ci --legacy-peer-deps
+
+    # ---------------------------
+    # Python dependencies
+    # ---------------------------
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    # ---------------------------
+    # Required directories
+    # ---------------------------
+    - name: Create required directories
+      run: |
+        mkdir -p session
+        mkdir -p data
+        mkdir -p downloads
+        mkdir -p app_cache
+        mkdir -p conversations
+
+    # ---------------------------
+    # Initialize data files
+    # ---------------------------
+    - name: Initialize data files
+      run: |
+        [ ! -f data/blocklist.json ] && echo '[]' > data/blocklist.json
+        [ ! -f data/users.json ] && echo '{}' > data/users.json
+        [ ! -f data/downloads.json ] && echo '{}' > data/downloads.json
+        [ ! -f data/groups.json ] && echo '{}' > data/groups.json
+        echo "Data files initialized"
+
+    # ---------------------------
+    # Start API Server
+    # ---------------------------
+    - name: Start API Server
+      run: |
+        cd src/api
+        nohup python api_server.py > api.log 2>&1 &
+        sleep 5
+        echo "API Server started"
+
+    # ---------------------------
+    # Start WhatsApp Bot (keep alive)
+    # ---------------------------
+    - name: Start WhatsApp Bot
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        BOT_NUMBER: ${{ secrets.BOT_NUMBER }}
+        DEVELOPER_NUMBERS: ${{ secrets.DEVELOPER_NUMBERS }}
+      run: |
+        echo "Starting WhatsApp Bot..."
+        nohup node bot.js > bot.log 2>&1 &
+
+        while true; do
+          echo "Bot is running..."
+          sleep 60
+        done
