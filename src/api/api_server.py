@@ -672,8 +672,13 @@ async def get_traidsoft_download_link(page_url: str) -> Optional[Dict[str, Any]]
         )
         
         if not html:
-            print(f"[TraidSoft] Failed to fetch page", file=sys.stderr)
-            return None
+            print(f"[TraidSoft] Failed to fetch page, returning page URL", file=sys.stderr)
+            return {
+                "download_url": page_url,
+                "source": "TraidSoft",
+                "page_url": page_url,
+                "note": "زيارة الصفحة مباشرة للحصول على رابط التحميل"
+            }
         
         soup = BeautifulSoup(html, 'html.parser')
         download_links = []
@@ -700,11 +705,13 @@ async def get_traidsoft_download_link(page_url: str) -> Optional[Dict[str, Any]]
                     "type": "mega"
                 })
         
-        direct_apk_links = soup.find_all('a', href=re.compile(r'\.apk(\?|$)'))
+        direct_apk_links = soup.find_all('a', href=re.compile(r'\.apk(\?|$)', re.IGNORECASE))
         for link in direct_apk_links:
             href = link.get('href', '')
             text = link.get_text(strip=True) or 'Direct APK'
-            if href and href.startswith('http'):
+            if href:
+                if not href.startswith('http'):
+                    href = 'https://app.traidsoft.net' + (href if href.startswith('/') else '/' + href)
                 download_links.append({
                     "url": href,
                     "name": text,
@@ -735,8 +742,13 @@ async def get_traidsoft_download_link(page_url: str) -> Optional[Dict[str, Any]]
                 "page_url": page_url
             }
         
-        print(f"[TraidSoft] No download links found", file=sys.stderr)
-        return None
+        print(f"[TraidSoft] No direct links found, returning page URL", file=sys.stderr)
+        return {
+            "download_url": page_url,
+            "source": "TraidSoft",
+            "page_url": page_url,
+            "note": "زيارة الصفحة مباشرة للحصول على رابط التحميل"
+        }
         
     except Exception as e:
         print(f"[TraidSoft] Download error: {e}", file=sys.stderr)
