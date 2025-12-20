@@ -3739,6 +3739,22 @@ async function handleAppDownload(sock, remoteJid, userId, senderPhone, msg, appI
                     }
                 }
                 
+                // If URL is a TraidSoft page (not direct link), send page link instead
+                if (modSource === 'TraidSoft' && downloadUrl.includes('app.traidsoft.net') && !downloadUrl.includes('.apk')) {
+                    console.log(`📥 [TraidSoft] Sending page link to user...`);
+                    let pageText = `🎮 *${appTitle}* (مهكرة)\n\n`;
+                    pageText += `📱 *مصدر التحميل:* TraidSoft\n\n`;
+                    pageText += `🔗 *رابط الصفحة:*\n${downloadUrl}\n\n`;
+                    pageText += `💡 اضغط على الرابط لتحميل التطبيق من TraidSoft${POWERED_BY}`;
+                    
+                    await sendBotMessage(sock, remoteJid, { text: pageText }, msg);
+                    session.isDownloading = false;
+                    stopDownloadTracking(senderPhone);
+                    session.state = 'idle';
+                    userSessions.set(userId, session);
+                    return;
+                }
+                
                 // Check file size first with HEAD request
                 let estimatedSize = 0;
                 try {
